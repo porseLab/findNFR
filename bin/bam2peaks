@@ -520,7 +520,7 @@ echo -n "Convert input bam to bigWig format to visualize in UCSC browser (`date`
 for(( i=0; i<${#BAMFILEa[@]}; i++ )); do
     ID=$(echo ${BAMFILEa[$i]} | perl -ane '$_=~s/\.bam.*//g; print $_;');
     if [ ! -s "$ID.bw" ]; then
-        bam2bwForChIP -i ${BAMFILEa[$i]} -e ${EXTENDa[$i]} -g $GENOME &
+        bam2bwForChIPv1 -i ${BAMFILEa[$i]} -e ${EXTENDa[$i]} -g $GENOME &
     else
         echo -n "($ID.bw already exists..) "
     fi

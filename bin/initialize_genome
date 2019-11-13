@@ -32,16 +32,20 @@ usage() {
 	echo " -i <file>   [input file containing genome information]"
     echo "[OPTIONS]"
     echo " -g <string> [genome (default: mm9)]"
+    echo " -m          [macs2 genome size parameter, -g]"
+    echo " -s          [effective genome size]"
 	echo " -h          [help]"
 	echo
 	exit 0
 }
 
 #### parse options ####
-while getopts i:g:h ARG; do
+while getopts i:g:msh ARG; do
 	case "$ARG" in
 		i) FILE=$OPTARG;;
         g) GENOME=$OPTARG;;
+        m) MACS2=1;;
+        s) GSIZE=1;;
 		h) HELP=1;;
 	esac
 done
@@ -52,6 +56,12 @@ if [ ! -f "$FILE" -o "$HELP" ]; then
 fi
 
 ## determine genome file location
-grep -w $GENOME $FILE | perl -ane 'print "$F[1]";'
+if [ ! -z "$MACS2" ]; then
+    grep -w $GENOME $FILE | perl -ane 'print "$F[2]";'
+elif [ ! -z "$GSIZE" ] ; then
+    grep -w $GENOME $FILE | perl -ane 'print "$F[3]";'
+else
+    grep -w $GENOME $FILE | perl -ane 'print "$F[1]";'
+fi
 
 exit

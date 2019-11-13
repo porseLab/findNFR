@@ -1,6 +1,7 @@
-mm9 mouse.mm9.genome
-mm10    mouse.mm10.genome
-hg19    human.hg19.genome
-hg38    human.hg38.genome
-danRer7 zebrafish.danRer7.genome
-rn5 rat.rn5.genome
+## genome size source: https://deeptools.readthedocs.io/en/develop/content/feature/effectiveGenomeSize.html & https://www.biostars.org/p/178995/
+mm9 mouse.mm9.genome    mm  2620345972
+mm10    mouse.mm10.genome   mm  2652783500
+hg19    human.hg19.genome   hs  2864785220
+hg38    human.hg38.genome   hs  2913022398
+danRer7 zebrafish.danRer7.genome    1369631918  1369631918    
+rn5 rat.rn5.genome  2197995070  2197995070
