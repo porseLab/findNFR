@@ -134,9 +134,9 @@ done < $PEAKCONFIGFILE
 ID=$(echo $ID | perl -ane '$_=~s/^\,//g; print $_;')
 PEAKFILE=$(echo $PEAKFILE | perl -ane '$_=~s/^\,//g; print $_;')
 
->&2 echo -n "Compile all peaks using multiIntersectBed.sh (`date`).. "
+>&2 echo -n "Compile all peaks using multiIntersectBedv1.sh (`date`).. "
 if [ ! -f "$OUTDIR/all_peaks.bed" ]; then
-    multiIntersectBed.sh -i $PEAKFILE -j $ID > $OUTDIR/all_peaks.bed
+    multiIntersectBedv1.sh -i $PEAKFILE -j $ID > $OUTDIR/all_peaks.bed
 fi
 >&2 echo "done"
 
