@@ -32,7 +32,7 @@ fi
 ## determine, if the input genes are from a file or stdin
 if [ "$GORESULTS" == "stdin" ]; then
     TMP=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
-    while read LINE; do echo -e ${LINE}; done > $TMP
+    while read LINE; do echo -e "${LINE}"; done > $TMP
     GORESULTS=$TMP
 fi
 
@@ -52,3 +52,7 @@ zless $GORESULTS | cut -f 1,4,12 | grep -wv Description | perl -an -F'/\t+/' -e 
     }' | sort -k 2,2 -k 3n,3 | perl -an -F'/\t+/' -e '$F[1]=~s/\,.*//g; print "$F[0]\t$F[1]\t$F[2]";' | sort -k 2,2
     ## more concise report on which go class contains most genes
     #cut -f 2,3 | sort | uniq -c | sed -E 's/^\s+//g' | sort -k 1rn,1
+
+if [ ! -z "$TMP" ]; then
+    rm $TMP
+fi
