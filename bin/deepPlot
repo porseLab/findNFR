@@ -1,0 +1,293 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=4
+
+GENOME="mm9";
+PLOTREGION="reference-point"
+FLANKREGION=1000
+BINSIZE=10
+SCALE=1
+SORT_REGIONS="keep"
+SORT_USING="mean"
+PLOTTITLE="deepPlot"
+AVERAGE_TYPE="mean"
+PLOT_HEIGHT=7
+PLOT_WIDTH=11
+PLOT_TYPE="lines"
+
+#### usage ####
+usage() {
+	echo Program: "deepPlot (plot signal profiles for input genomic regions)"
+	echo Author: BRIC, University of Copenhagen, Denmark
+	echo Version: 1.0
+	echo Contact: pundhir@binf.ku.dk
+	echo "Usage: deepPlot -i <file | stdin> -j <dir> [OPTIONS]"
+	echo "Options:"
+	echo " -i <file>   [input file having regions of interest in BED format]"
+    echo "             [if multiple, separate them by a comma]"
+    echo "             [FORMAT: chr start end name score strand class (optional)]"
+    echo "             [NOTE: class information is required, if signal profile needs to be plotted per class]"
+	echo " -j <dir>    [input directory containing bigWig files]"
+    echo "             [if multiple seperate them by a comma]"
+    echo " -o <dir>    [output directory to store results]"
+    echo "[OPTIONS: genomic region file]"
+    echo " -c          [plot by class]"
+    echo " -C <int>    [randomly split input file to define given number of classes]"
+    echo "[OPTIONS: bigWig file(s)]"
+    echo " -f <string> [filter bigWig files matching identifiers eg. wt or gmp]"
+    echo "             [if multiple seperate them by a comma]"
+    echo " -d <string> [filter bigWig files not matching identifiers eg. wt or gmp]"
+    echo "             [if multiple seperate them by a comma]"
+    echo "[OPTIONS: computeMatrix]"
+    echo " -e <string> [plot format (scale-regions or reference-point; default: reference-point)]"
+    echo " -l <int>    [flanking region size (default: 1000)]"
+    echo " -M <int>    [size of the bin, must be integer (default: 30)]"
+    echo " -k          [skip zeros]"
+    echo " -n <int>    [skip regions having read counts lower than the input]"
+    echo " -N <int>    [skip regions having read counts more then the input]"
+    echo " -s <int>    [scale, if set, all values are multiplied by this number (default: 1)]"
+    echo " -a <string> [sort regions (default: keep)]"
+    echo "             [descend, ascend, no, keep]"
+    echo " -A <string> [sort using (default: no)]"
+    echo "             [mean, median, max, min, sum, region_length]"
+    echo " ** reference-point ** "
+    echo " -T <string> [The reference point of the regions to plot (defaut: TSS)]"
+    echo "             [TSS, TES or center]"
+    echo " ** scale-regions **"
+    echo " -5 <int>    [number of unscaled bases at 5' end]" 
+    echo " -3 <int>    [number of unscaled bases at 3' end]"
+    echo "[OPTIONS: plotProfile]"
+    echo " -p          [one plot for each input region (default: all combined)]"
+    echo " -P          [one plot for each bigWig file (default: all combined)]"
+    echo " -t <string> [name of the output histone profile plot (default: deepPlot)]"
+    echo " -q <int>    [K-means or HC number of clusters]"
+    echo " -Y <string> [average type (default: mean)]"
+    echo "             [mean, median, min, max, sum, std]"
+    echo " -G <int>    [plot height in cm (default: 7)]"
+    echo " -W <int>    [plot width in cm (default: 11)]"
+    echo " -E <string> [plot type (default: lines)]"
+    echo "             [lines, fill, se, std, overlapped_lines, heatmap]"
+    echo " -L <string> [colors (name or hex string)]"
+    echo "             [if multiple, separate them by a comma]"
+    echo " -R <string> [input region(s) labels]"
+    echo "             [if multiple, separate them by a comma]"
+    echo " -S <string> [input bigWig file(s) label]"
+    echo "             [if multiple, separate them by a comma]"
+    echo " -y <string> [y-axis label]"
+    echo " -z <int>    [y-axis minimum value]"
+    echo " -Z <int>    [y-axis maximum value]"
+    echo "[OPTIONS: misc]"
+    echo " -x <string> [strand-specific coverage calculation: both (default), same, opposite]"
+    echo " -g <string> [genome (default: mm9)]"
+	echo " -h          [help]"
+	echo
+	exit 0
+}
+
+#### parse options ####
+while getopts i:j:o:cC:f:d:e:l:M:kn:N:s:a:A:T:5:3:pPt:q:Y:G:W:E:L:R:S:y:z:Z:x:g:h ARG; do
+	case "$ARG" in
+		i) REGIONFILE=$OPTARG;;
+		j) BWDIR=$OPTARG;;
+        o) OUTDIR=$OPTARG;;
+        c) CLASS_SPLIT=1;;
+        C) RANDOM_SPLIT=$OPTARG;;
+        f) FILTER_MATCH=$OPTARG;;
+        d) FILTER_NOMATCH=$OPTARG;;
+        e) PLOTREGION=$OPTARG;;
+        l) FLANKREGION=$OPTARG;;
+        M) BINSIZE=$OPTARG;;
+        k) SKIPZEROS=1;;
+        n) SKIP_MIN_COUNT=$OPTARG;;
+        N) SKIP_MAX_COUNT=$OPTARG;;
+        s) SCALE=$OPTARG;;
+        a) SORT_REGIONS=$OPTARG;;
+        A) SORT_USING=$OPTARG;;
+        T) REFERENCE_POINT=$OPTARG;;
+        5) NO_BASES_UNSCALED_UP=$OPTARG;;
+        3) NO_BASES_UNSCALED_DOWN=$OPTARG;;
+        p) PLOTBYREGION=1;;
+        P) PLOTBYBWFILE=1;;
+        t) PLOTTITLE=$OPTARG;;
+        q) KMEANS=$OPTARG;;
+        Y) AVERAGE_TYPE=$OPTARG;;
+        G) PLOT_HEIGHT=$OPTARG;;
+        W) PLOT_WIDTH=$OPTARG;;
+        E) PLOT_TYPE=$OPTARG;;
+        L) PLOT_COLOR=$OPTARG;;
+        R) REGION_LABEL=$OPTARG;;
+        S) SAMPLE_LABEL=$OPTARG;;
+        y) YAXIS_LABEL=$OPTARG;;
+        z) YAXIS_MIN=$OPTARG;;
+        Z) YAXIS_MAX=$OPTARG;;
+        x) SS=$OPTARG;;
+        g) GENOME=$OPTARG;;
+		h) HELP=1;;
+	esac
+done
+
+## usage, if necessary file and directories are given/exist
+if [ -z "$REGIONFILE" -o -z "$BWDIR" -o -z "$OUTDIR" -o "$HELP" ]; then
+	usage
+fi
+
+echo -n "Create directory structure... "
+mkdir -p $OUTDIR
+echo "done"
+
+echo
+echo -n "Organize input genomic region files (`date`).. " >&2
+if [ "$(echo $REGIONFILE | grep "," | wc -l)" -gt 0 ]; then
+    INPUTFILE=$(echo $REGIONFILE | sed 's/\,/ /g')
+else
+    if [ "$REGIONFILE" == "stdin" ]; then
+        while read LINE; do echo -e ${LINE}; done > $OUTDIR/REGIONS_INTEREST.bed
+        REGIONFILE="$OUTDIR/REGIONS_INTEREST.bed"
+    else
+        scp $REGIONFILE $OUTDIR/REGIONS_INTEREST.bed
+        REGIONFILE="$OUTDIR/REGIONS_INTEREST.bed"
+    fi
+
+    if [ ! -z "$RANDOM_SPLIT" ]; then
+        LINES=$(cat $REGIONFILE | wc -l | perl -ane 'use POSIX; printf("%0.0f", ceil($_/'$RANDOM_SPLIT'));')
+        SPLIT_TMP=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+        cat $REGIONFILE | split -l $LINES --additional-suffix $SPLIT_TMP
+        i=0
+        for file in $(ls *$SPLIT_TMP); do
+            cat $file | perl -ane '$class="CLASS_'$i'"; print "$F[0]\t$F[1]\t$F[2]\t$F[3]\t$F[4]\t$F[5]\t$class\n";';
+            i=$((i+1))
+        done > $REGIONFILE.$SPLIT_TMP
+        mv $REGIONFILE.$SPLIT_TMP $OUTDIR/REGIONS_INTEREST.bed
+        REGIONFILE="$OUTDIR/REGIONS_INTEREST.bed"
+        rm *$SPLIT_TMP
+        CLASS_SPLIT=1
+    fi
+
+    INPUTFILE=$REGIONFILE
+    if [ ! -z "$CLASS_SPLIT" ]; then
+        INPUTFILE=""
+        i=0
+        for CLASS in $(cat $REGIONFILE | cut -f 7 | sort | uniq); do
+            perl -ane 'if($F[6]=~/^'$CLASS'$/) { $F[6]=~s/\,/\_/g; print "$F[0]"; foreach(@F[1..scalar(@F)-1]) { print "\t$_"; } print "\n"; }' $REGIONFILE > $REGIONFILE.$i
+            INPUTFILE="$INPUTFILE $REGIONFILE.$i"
+            i=$((i+1))
+        done
+    fi
+fi
+
+INPUTFILES=($INPUTFILE)
+echo "done ($INPUTFILE)" >&2
+
+echo
+echo -n "Organize input bigWig files (`date`).. " >&2
+oIFS=$IFS
+IFS=","
+FILTERS_MATCH=($FILTER_MATCH)
+FILTERS_NOMATCH=($FILTER_NOMATCH)
+BWDIRS=($BWDIR)
+IFS=$oIFS
+
+BWFILE=""
+for DIR in "${BWDIRS[@]}"; do
+    for file in $DIR/*.bw; do
+        MATCH_COUNT=0
+        for (( i=0; i<${#FILTERS_MATCH[@]}; i++ )); do
+            FOUND=`echo $file | perl -ane '$_=~s/^.*\///g; if($_=~/'${FILTERS_MATCH[$i]}'/) {print "1\n";}else{print "0\n";}'`;
+            #echo "${FILTERS_MATCH[$i]} $file $FOUND $i"
+            MATCH_COUNT=$(($MATCH_COUNT + $FOUND))
+        done
+        
+        NOMATCH_COUNT=0
+        for (( i=0; i<${#FILTERS_NOMATCH[@]}; i++ )); do
+            FOUND=`echo $file | perl -ane '$_=~s/^.*\///g; if($_=~/'${FILTERS_NOMATCH[$i]}'/) {print "1\n";}else{print "0\n";}'`;
+            #echo "${FILTERS_NOMATCH[$i]} $file $FOUND $i"
+            NOMATCH_COUNT=$(($NOMATCH_COUNT + $FOUND))
+        done
+        
+        TITLE=`echo $file | sed 's/^.*\///g;' | sed 's/\..*//g' | perl -ane 'chomp($_); print "$_";'`;
+        if [ "$MATCH_COUNT" == ${#FILTERS_MATCH[@]} -a "$NOMATCH_COUNT" -eq 0 ]; then
+            #echo -e "$TITLE\t$file"
+            BWFILE="$BWFILE $file"
+        fi
+    done
+done
+BWFILES=($BWFILE)
+echo "done ($BWFILE)" >&2
+
+echo
+echo -n "compute signal matrix using #region file(s): ${#INPUTFILES[@]}; #bigWig file(s): ${#BWFILES[@]} (`date`).. " >&2
+
+## format computeMatrix arguments
+ARG=""
+if [ ! -z "$SKIPZEROS" ]; then
+    ARG="$ARG --skipZeros";
+fi
+if [ ! -z "$SKIP_MIN_COUNT" ]; then
+    ARG="$ARG --minThreshold $SKIP_MIN_COUNT";
+fi
+if [ ! -z "$SKIP_MAX_COUNT" ]; then
+    ARG="$ARG --maxThreshold $SKIP_MAX_COUNT";
+fi
+if [ ! -z "$SCALE" ]; then
+    ARG="$ARG --scale $SCALE";
+fi
+if [ ! -z "$REFERENCE_POINT" ]; then
+    ARG="$ARG --referencePoint $REFERENCE_POINT";
+fi
+if [ ! -z "$NO_BASES_UNSCALED_UP" ]; then
+    ARG="$ARG --unscaled5prime $NO_BASES_UNSCALED_UP";
+fi
+if [ ! -z "$NO_BASES_UNSCALED_DOWN" ]; then
+    ARG="$ARG --unscaled3prime $NO_BASES_UNSCALED_DOWN";
+fi
+
+## execute computeMatrix
+if [ ! -s "$OUTDIR/$PLOTTITLE.deepToolsMatrix.gz" ]; then
+    computeMatrix $PLOTREGION -S $BWFILE -R $INPUTFILE \
+        -out $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz \
+        --beforeRegionStartLength $FLANKREGION --afterRegionStartLength $FLANKREGION \
+        --sortRegions $SORT_REGIONS --sortUsing $SORT_USING \
+        --smartLabels -bs $BINSIZE $ARG
+fi
+
+## format plotProfile arguments
+ARG=""
+if [ ! -z "$KMEANS" ]; then
+    ARG="$ARG --kmeans $KMEANS";
+fi
+if [ ! -z "$PLOT_COLOR" ]; then
+    ARG="$ARG --colors $(echo $PLOT_COLOR | sed 's/\,/ /g')";
+#else
+#    ARG="$ARG --colors $(getRColor.R -i ${#BWFILES[@]} -p)"
+fi
+if [ ! -z "$REGION_LABEL" ]; then
+    ARG="$ARG --regionsLabel $(echo $REGION_LABEL | sed 's/\,/ /g')";
+fi
+if [ ! -z "$SAMPLE_LABEL" ]; then
+    ARG="$ARG --samplesLabel $(echo $SAMPLE_LABEL | sed 's/\,/ /g')";
+fi
+if [ ! -z "$YAXIS_LABEL" ]; then
+    ARG="$ARG --yAxisLabel $YAXIS_LABEL";
+fi
+if [ ! -z "$YAXIS_MIN" ]; then
+    ARG="$ARG --yMin $YAXIS_MIN";
+fi
+if [ ! -z "$YAXIS_MAX" ]; then
+    ARG="$ARG --yMax $YAXIS_MAX";
+fi
+
+## make the plot
+if [ ! -z "$PLOTBYREGION" ]; then
+    plotProfile -m $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz \
+        -o $OUTDIR/$PLOTTITLE.pdf \
+        --plotTitle $PLOTTITLE --averageType $AVERAGE_TYPE \
+        --plotHeight $PLOT_HEIGHT --plotWidth $PLOT_WIDTH --plotType $PLOT_TYPE \
+        $ARG --perGroup
+elif [ ! -z "$PLOTBYBWFILE" ]; then
+    plotProfile -m $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz \
+        -o $OUTDIR/$PLOTTITLE.pdf \
+        --plotTitle $PLOTTITLE --averageType $AVERAGE_TYPE \
+        --plotHeight $PLOT_HEIGHT --plotWidth $PLOT_WIDTH --plotType $PLOT_TYPE \
+        $ARG
+fi
+echo "done" >&2
+exit
