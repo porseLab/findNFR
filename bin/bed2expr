@@ -18,7 +18,7 @@ usage() {
     echo "             [if multiple separate by a comma]"
     echo "             **OR**"
     echo "             [input configuration file containing bam file information]"
-    echo "             [<id> <bam file> (id should start with tpm)]"
+    echo "             [<id> <bam file> <bam file (spikeIn: optional)> (id should start with tpm)]"
     echo "[OPTIONS]"
     echo " -s <float>  [normalize expression by input size factor]"
     echo "             [if multiple, seperate them by a comma]"
@@ -85,6 +85,39 @@ fi
 ## check if input is BAM files or configuration file containing BAM file information
 INPUT=$(echo $INPUTBAMFILES | perl -ane '$_=~s/\,.*//g; print $_;')
 if [ "$(samtools view -H $INPUT | wc -l)" -le 0 ]; then
+    ## check if input configuration file is in correct format
+    if [ "$(cat $INPUTBAMFILES | perl -ane 'if($_=~/^'$CONFIG_FILTER'/) { print scalar(@F)."\n"; }' | sort | uniq | wc -l)" -gt 1 ]; then
+        echo
+        echo "input bam configuration file is not in correct format"
+        echo "possible reason: spikeIn control not provided for each sample"
+        usage
+    fi
+
+    ## read spikeIn control
+    if [ "$(cat $INPUTBAMFILES | perl -ane 'print scalar(@F)."\n";' | sort | uniq)" -gt 2 ]; then
+        INPUT=$(cat $INPUTBAMFILES | perl -ane '
+            if($_=~/^'$CONFIG_FILTER'/) {
+                $file.="$F[2] ";
+            } END {
+                $file=~s/\s+$//g;
+                print "$file\n";
+            }'
+        )
+        INPUTSPIKEINFILES=($INPUT)
+
+        ## determine spikeIn normalization values
+        SCALE_SPIKEIN=""
+        for(( i=0; i<${#INPUTSPIKEINFILES[@]}; i++ )); do
+            if [ "$(samtools flagstat ${INPUTSPIKEINFILES[$i]} | grep 'properly paired (' | wc -l)" -gt 0 ]; then
+                SCALE=$(samtools flagstat ${INPUTSPIKEINFILES[$i]} | grep "properly paired (" | cut -f 1 -d " " | perl -ane '$_=sprintf("%0.0f", $_/2); printf("%0.6f", 1000000/$_);');
+            elif [ "$(samtools flagstat ${INPUTSPIKEINFILES[$i]} | grep 'mapped (' | wc -l)" -gt 0 ]; then
+                SCALE=$(samtools flagstat ${INPUTSPIKEINFILES[$i]} | grep "mapped (" | cut -f 1 -d " " | perl -ane 'printf("%0.6f", 1000000/$_);');
+            fi
+            SCALE_SPIKEIN="$SCALE_SPIKEIN,$SCALE"
+        done
+        SCALE_SPIKEIN=$(echo $SCALE_SPIKEIN | perl -ane '$_=~s/^\,//; print $_;')
+    fi
+
     ## read configuration file
     INPUT=$(cat $INPUTBAMFILES | perl -ane '
         if($_=~/^'$CONFIG_FILTER'/) {
@@ -96,6 +129,7 @@ if [ "$(samtools view -H $INPUT | wc -l)" -le 0 ]; then
     )
     INPUTBAMFILES=$INPUT
 fi
+#echo -e "$SCALE_SPIKEIN"; exit
 
 ## parse input bam files in an array
 oIFS=$IFS
@@ -105,7 +139,7 @@ BAMFILES_COUNT=${#BAMFILES[@]}
 IFS=$oIFS
 
 ## initialize size factors, if both size factors and total reads not provided
-if [ -z "$INPUTSIZEFACTORS" -a -z "$CPM" -a -z "$FPKM" ]; then
+if [ -z "$INPUTSIZEFACTORS" -a -z "$CPM" -a -z "$FPKM" -a -z "$SCALE_SPIKEIN" ]; then
     INPUTSIZEFACTORS=""
     for(( i=0; i<$BAMFILES_COUNT; i++ )); do
         INPUTSIZEFACTORS="$INPUTSIZEFACTORS,1"
@@ -176,7 +210,32 @@ if [ ! -z "$INPUTBAMCONTROL" ]; then
             print "\t$_";
         } print "\n";' 
 else
-    if [ ! -z "$INPUTSIZEFACTORS" ]; then
+    if [ ! -z "$SCALE_SPIKEIN" -a -z "$INPUTSIZEFACTORS" -a -z "$CPM" -a -z "$FPKM" ]; then
+        ## create index of input BAM file, if does not exist
+        for(( i=0; i<$BAMFILES_COUNT; i++ )); do
+            if [ ! -f "${BAMFILES[$i]}.bai" ]; then
+                samtools index ${BAMFILES[$i]}
+            fi
+        done
+
+        if [ -z "$REMOVE_DUPLICATE" ]; then
+            if [ ! -z "$SAME_STRAND" ]; then
+                bedtools multicov -bams $INPUTBAMFILES -bed $INPUTBEDFILE -q 10 -D -s
+            elif [ ! -z "$OPPOSITE_STRAND" ]; then
+                bedtools multicov -bams $INPUTBAMFILES -bed $INPUTBEDFILE -q 10 -D -S
+            else
+                bedtools multicov -bams $INPUTBAMFILES -bed $INPUTBEDFILE -q 10 -D
+            fi
+        else
+            if [ ! -z "$SAME_STRAND" ]; then
+                bedtools multicov -bams $INPUTBAMFILES -bed $INPUTBEDFILE -q 10 -s
+            elif [ ! -z "$OPPOSITE_STRAND" ]; then
+                bedtools multicov -bams $INPUTBAMFILES -bed $INPUTBEDFILE -q 10 -S
+            else
+                bedtools multicov -bams $INPUTBAMFILES -bed $INPUTBEDFILE -q 10
+            fi
+        fi | perl -ane '@scaleSpikeIn=split(/\,/, "'$SCALE_SPIKEIN'"); $field_count=scalar(@F)-'$BAMFILES_COUNT'; foreach(@F[0..$field_count-1]) { print "$_\t"; } $i=0; foreach(@F[$field_count..scalar(@F)-1]) { printf("%0.5f\t", ($_+'$ADDONE')*$scaleSpikeIn[$i]); $i++; } print "\n";'
+    elif [ ! -z "$INPUTSIZEFACTORS" ]; then
         ## check, if number of size factors and extends are equal to the number of input bam files
         IFS=","
         SIZEFACTORS=($INPUTSIZEFACTORS)
@@ -260,7 +319,7 @@ else
         done
         MAPPEDREADS=$(echo $MAPPEDREADS | perl -ane '$_=~s/^\,//g; print $_;')
 
-        #echo $MAPPEDREADS
+        #echo $MAPPEDREADS; exit
         if [ -z "$REMOVE_DUPLICATE" ]; then
             if [ ! -z "$SAME_STRAND" ]; then
                 bedtools multicov -bams $INPUTBAMFILES -bed $INPUTBEDFILE -q 10 -D -s
