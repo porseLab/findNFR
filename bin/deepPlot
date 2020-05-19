@@ -10,9 +10,7 @@ SORT_REGIONS="keep"
 SORT_USING="mean"
 PLOTTITLE="deepPlot"
 AVERAGE_TYPE="mean"
-PLOT_HEIGHT=7
-PLOT_WIDTH=11
-PLOT_TYPE="lines"
+PLOT_TYPE="se"
 
 #### usage ####
 usage() {
@@ -49,33 +47,43 @@ usage() {
     echo "             [descend, ascend, no, keep]"
     echo " -A <string> [sort using (default: no)]"
     echo "             [mean, median, max, min, sum, region_length]"
-    echo " ** reference-point ** "
+    echo "             -- reference-point --"
     echo " -T <string> [The reference point of the regions to plot (defaut: TSS)]"
     echo "             [TSS, TES or center]"
-    echo " ** scale-regions **"
+    echo "             -- scale-regions --"
     echo " -5 <int>    [number of unscaled bases at 5' end]" 
     echo " -3 <int>    [number of unscaled bases at 3' end]"
-    echo "[OPTIONS: plotProfile]"
+    echo "[OPTIONS: plotProfile OR plotHeatmap]"
     echo " -p          [one plot for each input region (default: all combined)]"
     echo " -P          [one plot for each bigWig file (default: all combined)]"
     echo " -t <string> [name of the output histone profile plot (default: deepPlot)]"
     echo " -q <int>    [K-means or HC number of clusters]"
     echo " -Y <string> [average type (default: mean)]"
     echo "             [mean, median, min, max, sum, std]"
-    echo " -G <int>    [plot height in cm (default: 7)]"
-    echo " -W <int>    [plot width in cm (default: 11)]"
-    echo " -E <string> [plot type (default: lines)]"
+    echo " -E <string> [plot type (default: se)]"
     echo "             [lines, fill, se, std, overlapped_lines, heatmap]"
-    echo " -L <string> [colors (name or hex string)]"
-    echo "             [if multiple, separate them by a comma]"
     echo " -R <string> [input region(s) labels]"
     echo "             [if multiple, separate them by a comma]"
     echo " -S <string> [input bigWig file(s) label]"
     echo "             [if multiple, separate them by a comma]"
     echo " -y <string> [y-axis label]"
-    echo " -z <int>    [y-axis minimum value]"
-    echo " -Z <int>    [y-axis maximum value]"
+    echo " -v <int>    [y-axis minimum value]"
+    echo " -V <int>    [y-axis maximum value]"
+    echo " -G <int>    [plot height in cm (default: 7)]"
+    echo " -W <int>    [plot width in cm (default: 11)]"
+    echo "[OPTIONS: plotProfile]"
+    echo " -L <string> [colors (name or hex string)]"
+    echo "             [if multiple, separate them by a comma]"
+    echo "[OPTIONS: plotHeatmap]"
+    echo " -m <string> [interpolation method (default: auto)]"
+    echo "             [nearest, bilinear, bicubic, gaussian]"
+    echo " -r <string> [color of the heatmap (default: RdYlBu)]"
+    echo " -Q <int>    [The alpha channel (transparency) (default: 1)]"
+    echo "             [any value between 0 and 1]"
+    echo " -z <int>    [z-axis minimum value]"
+    echo " -Z <int>    [Z-axis maximum value]"
     echo "[OPTIONS: misc]"
+    echo " -F          [plot profile (default: heatmap)]"
     echo " -x <string> [strand-specific coverage calculation: both (default), same, opposite]"
     echo " -g <string> [genome (default: mm9)]"
 	echo " -h          [help]"
@@ -84,7 +92,7 @@ usage() {
 }
 
 #### parse options ####
-while getopts i:j:o:cC:f:d:e:l:M:kn:N:s:a:A:T:5:3:pPt:q:Y:G:W:E:L:R:S:y:z:Z:x:g:h ARG; do
+while getopts i:j:o:cC:f:d:e:l:M:kn:N:s:a:A:T:5:3:pPt:q:Y:E:R:S:y:v:V:G:W:L:m:r:Q:z:Z:Fx:g:h ARG; do
 	case "$ARG" in
 		i) REGIONFILE=$OPTARG;;
 		j) BWDIR=$OPTARG;;
@@ -110,15 +118,21 @@ while getopts i:j:o:cC:f:d:e:l:M:kn:N:s:a:A:T:5:3:pPt:q:Y:G:W:E:L:R:S:y:z:Z:x:g:
         t) PLOTTITLE=$OPTARG;;
         q) KMEANS=$OPTARG;;
         Y) AVERAGE_TYPE=$OPTARG;;
-        G) PLOT_HEIGHT=$OPTARG;;
-        W) PLOT_WIDTH=$OPTARG;;
         E) PLOT_TYPE=$OPTARG;;
-        L) PLOT_COLOR=$OPTARG;;
         R) REGION_LABEL=$OPTARG;;
         S) SAMPLE_LABEL=$OPTARG;;
         y) YAXIS_LABEL=$OPTARG;;
-        z) YAXIS_MIN=$OPTARG;;
-        Z) YAXIS_MAX=$OPTARG;;
+        v) YAXIS_MIN=$OPTARG;;
+        V) YAXIS_MAX=$OPTARG;;
+        G) PLOT_HEIGHT=$OPTARG;;
+        W) PLOT_WIDTH=$OPTARG;;
+        L) PLOT_COLOR=$OPTARG;;
+        m) INTERPOLATION_METHOD=$OPTARG;;
+        r) HEATMAP_COLOR=$OPTARG;;
+        Q) ALPHA=$OPTARG;;
+        z) ZAXIS_MIN=$OPTARG;;
+        Z) ZAXIS_MAX=$OPTARG;;
+        F) PLOT_PROFILE=1;;
         x) SS=$OPTARG;;
         g) GENOME=$OPTARG;;
 		h) HELP=1;;
@@ -140,7 +154,7 @@ if [ "$(echo $REGIONFILE | grep "," | wc -l)" -gt 0 ]; then
     INPUTFILE=$(echo $REGIONFILE | sed 's/\,/ /g')
 else
     if [ "$REGIONFILE" == "stdin" ]; then
-        while read LINE; do echo -e ${LINE}; done > $OUTDIR/REGIONS_INTEREST.bed
+        while read LINE; do echo -e "${LINE}"; done > $OUTDIR/REGIONS_INTEREST.bed
         REGIONFILE="$OUTDIR/REGIONS_INTEREST.bed"
     else
         scp $REGIONFILE $OUTDIR/REGIONS_INTEREST.bed
@@ -214,7 +228,7 @@ BWFILES=($BWFILE)
 echo "done ($BWFILE)" >&2
 
 echo
-echo -n "compute signal matrix using #region file(s): ${#INPUTFILES[@]}; #bigWig file(s): ${#BWFILES[@]} (`date`).. " >&2
+echo -n "Compute signal matrix using #region file(s): ${#INPUTFILES[@]}; #bigWig file(s): ${#BWFILES[@]} (`date`).. " >&2
 
 ## format computeMatrix arguments
 ARG=""
@@ -246,18 +260,16 @@ if [ ! -s "$OUTDIR/$PLOTTITLE.deepToolsMatrix.gz" ]; then
         -out $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz \
         --beforeRegionStartLength $FLANKREGION --afterRegionStartLength $FLANKREGION \
         --sortRegions $SORT_REGIONS --sortUsing $SORT_USING \
-        --smartLabels -bs $BINSIZE $ARG
+        --smartLabels -bs $BINSIZE -p "max/2" $ARG
 fi
+echo "done" >&2
 
-## format plotProfile arguments
+echo
+echo -n "Make the plots (profile and heatmap) (`date`).. " >&2
+## format plotProfile OR plotHeatmap arguments
 ARG=""
 if [ ! -z "$KMEANS" ]; then
     ARG="$ARG --kmeans $KMEANS";
-fi
-if [ ! -z "$PLOT_COLOR" ]; then
-    ARG="$ARG --colors $(echo $PLOT_COLOR | sed 's/\,/ /g')";
-#else
-#    ARG="$ARG --colors $(getRColor.R -i ${#BWFILES[@]} -p)"
 fi
 if [ ! -z "$REGION_LABEL" ]; then
     ARG="$ARG --regionsLabel $(echo $REGION_LABEL | sed 's/\,/ /g')";
@@ -275,19 +287,75 @@ if [ ! -z "$YAXIS_MAX" ]; then
     ARG="$ARG --yMax $YAXIS_MAX";
 fi
 
+## format plotProfile arguments
+ARG_PROFILE=""
+if [ ! -z "$PLOT_COLOR" ]; then
+    ARG_PROFILE="$ARG_PROFILE --colors $(echo $PLOT_COLOR | sed 's/\,/ /g')";
+#else
+#    ARG_PROFILE="$ARG_PROFILE --colors $(getRColor.R -i ${#BWFILES[@]} -p)"
+fi
+if [ ! -z "$PLOT_HEIGHT" ]; then
+    ARG_PROFILE="$ARG_PROFILE --plotHeight $PLOT_HEIGHT";
+fi
+if [ ! -z "$PLOT_WIDTH" ]; then
+    ARG_PROFILE="$ARG_PROFILE --plotWidth $PLOT_WIDTH";
+fi
+
+## format plotHeatmap arguments
+ARG_HEATMAP=""
+if [ ! -z "$INTERPOLATION_METHOD" ]; then
+    ARG_HEATMAP="$ARG_HEATMAP --interpolationMethod $INTERPOLATION_METHOD";
+fi
+if [ ! -z "$HEATMAP_COLOR" ]; then
+    ARG_HEATMAP="$ARG_HEATMAP --colorMap $HEATMAP_COLOR";
+fi
+if [ ! -z "$ALPHA" ]; then
+    ARG_HEATMAP="$ARG_HEATMAP --alpha $ALPHA";
+fi
+if [ ! -z "$ZAXIS_MIN" ]; then
+    ARG_HEATMAP="$ARG_HEATMAP --zMin $YAXIS_MIN";
+fi
+if [ ! -z "$ZAXIS_MAX" ]; then
+    ARG_HEATMAP="$ARG_HEATMAP --zMax $YAXIS_MIN";
+fi
+if [ ! -z "$PLOT_HEIGHT" ]; then
+    ARG_HEATMAP="$ARG_HEATMAP --heatmapHeight $PLOT_HEIGHT";
+fi
+if [ ! -z "$PLOT_WIDTH" ]; then
+    ARG_HEATMAP="$ARG_HEATMAP --heatmapWidth $PLOT_WIDTH";
+fi
+
 ## make the plot
 if [ ! -z "$PLOTBYREGION" ]; then
-    plotProfile -m $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz \
-        -o $OUTDIR/$PLOTTITLE.pdf \
-        --plotTitle $PLOTTITLE --averageType $AVERAGE_TYPE \
-        --plotHeight $PLOT_HEIGHT --plotWidth $PLOT_WIDTH --plotType $PLOT_TYPE \
-        $ARG --perGroup
+    if [ ! -z "$PLOT_PROFILE" ]; then
+        plotProfile -m $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz \
+            -o $OUTDIR/$PLOTTITLE.pdf \
+            --plotTitle $PLOTTITLE --averageType $AVERAGE_TYPE \
+            --plotType $PLOT_TYPE \
+            $ARG $ARG_PROFILE --perGroup
+    else
+        plotHeatmap -m $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz \
+            -o $OUTDIR/$PLOTTITLE.pdf \
+            --plotTitle $PLOTTITLE --averageTypeSummaryPlot $AVERAGE_TYPE \
+            --sortRegions $SORT_REGIONS --sortUsing $SORT_USING \
+            --plotType $PLOT_TYPE \
+            $ARG $ARG_HEATMAP --perGroup
+    fi
 elif [ ! -z "$PLOTBYBWFILE" ]; then
-    plotProfile -m $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz \
-        -o $OUTDIR/$PLOTTITLE.pdf \
-        --plotTitle $PLOTTITLE --averageType $AVERAGE_TYPE \
-        --plotHeight $PLOT_HEIGHT --plotWidth $PLOT_WIDTH --plotType $PLOT_TYPE \
-        $ARG
+    if [ ! -z "$PLOT_PROFILE" ]; then
+        plotProfile -m $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz \
+            -o $OUTDIR/$PLOTTITLE.pdf \
+            --plotTitle $PLOTTITLE --averageType $AVERAGE_TYPE \
+            --plotType $PLOT_TYPE \
+            $ARG $ARG_PROFILE
+    else
+        plotHeatmap -m $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz \
+            -o $OUTDIR/$PLOTTITLE.pdf \
+            --plotTitle $PLOTTITLE --averageTypeSummaryPlot $AVERAGE_TYPE \
+            --sortRegions $SORT_REGIONS --sortUsing $SORT_USING \
+            --plotType $PLOT_TYPE \
+            $ARG $ARG_HEATMAP
+    fi
 fi
 echo "done" >&2
 exit
