@@ -108,9 +108,9 @@ if [ "$(samtools view -H $INPUT | wc -l)" -le 0 ]; then
         ## determine spikeIn normalization values
         SCALE_SPIKEIN=""
         for(( i=0; i<${#INPUTSPIKEINFILES[@]}; i++ )); do
-            if [ "$(samtools flagstat ${INPUTSPIKEINFILES[$i]} | grep 'properly paired (' | wc -l)" -gt 0 ]; then
+            if [ "$(samtools flagstat ${INPUTSPIKEINFILES[$i]} | grep 'properly paired (' | cut -f 1 -d " ")" -gt 0 ]; then
                 SCALE=$(samtools flagstat ${INPUTSPIKEINFILES[$i]} | grep "properly paired (" | cut -f 1 -d " " | perl -ane '$_=sprintf("%0.0f", $_/2); printf("%0.6f", 1000000/$_);');
-            elif [ "$(samtools flagstat ${INPUTSPIKEINFILES[$i]} | grep 'mapped (' | wc -l)" -gt 0 ]; then
+            elif [ "$(samtools flagstat ${INPUTSPIKEINFILES[$i]} | grep 'mapped (' | cut -f 1 -d " ")" -gt 0 ]; then
                 SCALE=$(samtools flagstat ${INPUTSPIKEINFILES[$i]} | grep "mapped (" | cut -f 1 -d " " | perl -ane 'printf("%0.6f", 1000000/$_);');
             fi
             SCALE_SPIKEIN="$SCALE_SPIKEIN,$SCALE"
