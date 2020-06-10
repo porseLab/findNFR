@@ -42,6 +42,11 @@ usage() {
     echo " In case of error: Could not open input BAM files, refer to:"
     echo " https://groups.google.com/forum/#!msg/bedtools-discuss/_LNuoRWHn50/14MaqyzyzXsJ"
     echo " i.e. make sure header of all input bam files is identical"
+    echo
+    echo " It is important that all input BAM files contain reads mapped using same parameters]"
+    echo " for eg., if some samples contain unique while others both unique+multimapped reads]"
+    echo " expr. quantification of regions containing multimapped reads would be wrong]"
+    echo " even if we set -M 0 parameter]"
 	echo
 	exit 0
 }

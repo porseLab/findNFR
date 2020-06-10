@@ -31,9 +31,9 @@ usage() {
     echo " -c          [plot by class]"
     echo " -C <int>    [randomly split input file to define given number of classes]"
     echo "[OPTIONS: bigWig file(s)]"
-    echo " -f <string> [filter bigWig files matching identifiers eg. wt or gmp]"
+    echo " -f <string> [filter in bigWig files matching identifiers eg. wt or gmp]"
     echo "             [if multiple seperate them by a comma]"
-    echo " -d <string> [filter bigWig files not matching identifiers eg. wt or gmp]"
+    echo " -d <string> [filter out bigWig files matching identifiers eg. wt or gmp]"
     echo "             [if multiple seperate them by a comma]"
     echo "[OPTIONS: computeMatrix]"
     echo " -e <string> [plot format (scale-regions or reference-point; default: reference-point)]"
@@ -71,6 +71,7 @@ usage() {
     echo " -V <int>    [y-axis maximum value]"
     echo " -G <int>    [plot height in cm (default: 7)]"
     echo " -W <int>    [plot width in cm (default: 11)]"
+    echo " -O <file>   [file name to save the data underlying data for the average profile or heatmap]"
     echo "[OPTIONS: plotProfile]"
     echo " -L <string> [colors (name or hex string)]"
     echo "             [if multiple, separate them by a comma]"
@@ -92,7 +93,7 @@ usage() {
 }
 
 #### parse options ####
-while getopts i:j:o:cC:f:d:e:l:M:kn:N:s:a:A:T:5:3:pPt:q:Y:E:R:S:y:v:V:G:W:L:m:r:Q:z:Z:Fx:g:h ARG; do
+while getopts i:j:o:cC:f:d:e:l:M:kn:N:s:a:A:T:5:3:pPt:q:Y:E:R:S:y:v:V:G:W:O:L:m:r:Q:z:Z:Fx:g:h ARG; do
 	case "$ARG" in
 		i) REGIONFILE=$OPTARG;;
 		j) BWDIR=$OPTARG;;
@@ -126,6 +127,7 @@ while getopts i:j:o:cC:f:d:e:l:M:kn:N:s:a:A:T:5:3:pPt:q:Y:E:R:S:y:v:V:G:W:L:m:r:
         V) YAXIS_MAX=$OPTARG;;
         G) PLOT_HEIGHT=$OPTARG;;
         W) PLOT_WIDTH=$OPTARG;;
+        O) OUT_DATA_FILE=$OPTARG;;
         L) PLOT_COLOR=$OPTARG;;
         m) INTERPOLATION_METHOD=$OPTARG;;
         r) HEATMAP_COLOR=$OPTARG;;
@@ -300,6 +302,9 @@ fi
 if [ ! -z "$PLOT_WIDTH" ]; then
     ARG_PROFILE="$ARG_PROFILE --plotWidth $PLOT_WIDTH";
 fi
+#if [ ! -z "$OUT_DATA_FILE" ]; then
+#    ARG_PROFILE="$ARG_PROFILE --outFileNameData $OUT_DATA_FILE";
+#fi
 
 ## format plotHeatmap arguments
 ARG_HEATMAP=""
@@ -324,6 +329,9 @@ fi
 if [ ! -z "$PLOT_WIDTH" ]; then
     ARG_HEATMAP="$ARG_HEATMAP --heatmapWidth $PLOT_WIDTH";
 fi
+#if [ ! -z "$OUT_DATA_FILE" ]; then
+#    ARG_HEATMAP="$ARG_PROFILE --outFileSortedRegions $OUT_DATA_FILE";
+#fi
 
 ## make the plot
 if [ ! -z "$PLOTBYREGION" ]; then
@@ -358,4 +366,24 @@ elif [ ! -z "$PLOTBYBWFILE" ]; then
     fi
 fi
 echo "done" >&2
+
+if [ ! -z "$OUT_DATA_FILE" ]; then
+    echo
+    echo -n "Export read counts for input regions in a file (`date`).. " >&2
+    TMP=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+
+    ## determine unique gene names in the input file
+    zless $INPUTFILE | bed2longestRegion -i stdin | perl -ane 'chomp($_); print "$F[0]_$F[1]_$F[2]\t$_\n";' | sort -k 1,1 | perl -ane 'if(!$seen{$F[0]}) { print $_; $seen{$F[0]}=1; }' | cut -f 2- > $OUTDIR/input.$TMP
+
+    multiBigwigSummary BED-file -b $BWFILE --BED $OUTDIR/input.$TMP --outRawCounts $OUTDIR/counts.$TMP -o $OUTDIR/matrix.$TMP --smartLabels -p "max/2"
+
+    echo -e "$(bed2header -i $OUTDIR/input.$TMP)\t$(grep '#' $OUTDIR/counts.$TMP | cut -f 4- | sed s/\'//g)" > $OUTDIR/$OUT_DATA_FILE
+    join -j 1 <(cat $OUTDIR/input.$TMP | perl -ane 'chomp($_); print "$F[0]_$F[1]_$F[2]\t$_\n";' | sort -k 1,1) <(grep -v "#" $OUTDIR/counts.$TMP | perl -ane 'chomp($_); print "$F[0]_$F[1]_$F[2]\t$_\n";' | cut -f 1,5- | sort -k 1,1) | tabEdit -i stdin -t | cut -f 2- >> $OUTDIR/$OUT_DATA_FILE 
+   
+    ## remove temporary files
+    rm $OUTDIR/input.$TMP
+    rm $OUTDIR/counts.$TMP
+    rm $OUTDIR/matrix.$TMP
+    echo "done" >&2
+fi
 exit
