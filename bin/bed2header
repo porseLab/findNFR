@@ -10,14 +10,16 @@ usage() {
 	echo "Usage: bed2header -i <file> [OPTIONS]"
 	echo "Options:"
 	echo " -i <file>   [input file (can be stdin)]"
+    echo " -r          [only header (default: input file with header)]"
     echo " -h          [help]"
 	exit 0
 }
 
 #### parse options ####
-while getopts i:h ARG; do
+while getopts i:rh ARG; do
     case "$ARG" in
     i) INFILE=$OPTARG;;
+    r) HEADER=1;;
     h) HELP=1;;
     esac
 done
@@ -52,6 +54,10 @@ if [ "$(isBed -i $INFILE)" -eq 0 ]; then
                 print "\t$header{$i}";
              }
              print "\n";'
+fi
+
+if [ -z "$HEADER" ]; then
+    zless $INFILE
 fi
 
 ## remove temporary file, if exists
