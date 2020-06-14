@@ -66,12 +66,14 @@ usage() {
     echo "             [if multiple, separate them by a comma]"
     echo " -S <string> [input bigWig file(s) label]"
     echo "             [if multiple, separate them by a comma]"
+    echo "             [if sample names are not unique, an average will be plotted]"
+    echo "             [useful to plot mean of replicates]"
     echo " -y <string> [y-axis label]"
     echo " -v <int>    [y-axis minimum value]"
     echo " -V <int>    [y-axis maximum value]"
     echo " -G <int>    [plot height in cm (default: 7)]"
     echo " -W <int>    [plot width in cm (default: 11)]"
-    echo " -O <file>   [file name to save the data underlying data for the average profile or heatmap]"
+    echo " -O <file>   [file name to save the underlying data for the average profile or heatmap]"
     echo "[OPTIONS: plotProfile]"
     echo " -L <string> [colors (name or hex string)]"
     echo "             [if multiple, separate them by a comma]"
@@ -257,9 +259,9 @@ if [ ! -z "$NO_BASES_UNSCALED_DOWN" ]; then
 fi
 
 ## execute computeMatrix
-if [ ! -s "$OUTDIR/$PLOTTITLE.deepToolsMatrix.gz" ]; then
+if [ ! -s "$OUTDIR/$PLOTTITLE.deepToolsMatrix.raw.gz" ]; then
     computeMatrix $PLOTREGION -S $BWFILE -R $INPUTFILE \
-        -out $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz \
+        -out $OUTDIR/$PLOTTITLE.deepToolsMatrix.raw.gz \
         --beforeRegionStartLength $FLANKREGION --afterRegionStartLength $FLANKREGION \
         --sortRegions $SORT_REGIONS --sortUsing $SORT_USING \
         --smartLabels -bs $BINSIZE -p "max/2" $ARG
@@ -277,7 +279,19 @@ if [ ! -z "$REGION_LABEL" ]; then
     ARG="$ARG --regionsLabel $(echo $REGION_LABEL | sed 's/\,/ /g')";
 fi
 if [ ! -z "$SAMPLE_LABEL" ]; then
-    ARG="$ARG --samplesLabel $(echo $SAMPLE_LABEL | sed 's/\,/ /g')";
+    ## execute deepPlot.R, if sample names are given, and
+    ## compute mean if they are not unique
+    SAMPLE_LABELS=($(echo $SAMPLE_LABEL | sed 's/\,/ /g'))
+
+    if [ "${#BWFILES[@]}" -eq "${#SAMPLE_LABELS[@]}" ]; then 
+        deepPlot.R -i $OUTDIR/$PLOTTITLE.deepToolsMatrix.raw.gz -j $SAMPLE_LABEL -o $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz
+    else
+        echo
+        echo "Please provide sample labels for all input bigWig file(s)"
+        usage
+    fi
+
+    ARG="$ARG --samplesLabel $(echo $SAMPLE_LABEL | sed 's/\,/\n/g' | sort | uniq | tr '\r\n' ' ')";
 fi
 if [ ! -z "$YAXIS_LABEL" ]; then
     ARG="$ARG --yAxisLabel $YAXIS_LABEL";
@@ -377,7 +391,7 @@ if [ ! -z "$OUT_DATA_FILE" ]; then
 
     multiBigwigSummary BED-file -b $BWFILE --BED $OUTDIR/input.$TMP --outRawCounts $OUTDIR/counts.$TMP -o $OUTDIR/matrix.$TMP --smartLabels -p "max/2"
 
-    echo -e "$(bed2header -i $OUTDIR/input.$TMP)\t$(grep '#' $OUTDIR/counts.$TMP | cut -f 4- | sed s/\'//g)" > $OUTDIR/$OUT_DATA_FILE
+    echo -e "$(bed2header -i $OUTDIR/input.$TMP -r)\t$(grep '#' $OUTDIR/counts.$TMP | cut -f 4- | sed s/\'//g)" > $OUTDIR/$OUT_DATA_FILE
     join -j 1 <(cat $OUTDIR/input.$TMP | perl -ane 'chomp($_); print "$F[0]_$F[1]_$F[2]\t$_\n";' | sort -k 1,1) <(grep -v "#" $OUTDIR/counts.$TMP | perl -ane 'chomp($_); print "$F[0]_$F[1]_$F[2]\t$_\n";' | cut -f 1,5- | sort -k 1,1) | tabEdit -i stdin -t | cut -f 2- >> $OUTDIR/$OUT_DATA_FILE 
    
     ## remove temporary files
