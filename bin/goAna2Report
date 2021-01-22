@@ -32,11 +32,33 @@ fi
 ## determine, if the input genes are from a file or stdin
 if [ "$GORESULTS" == "stdin" ]; then
     TMP=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
-    while read LINE; do echo -e ${LINE}; done > $TMP
+    while read LINE; do echo -e "${LINE}"; done > $TMP
     GORESULTS=$TMP
 fi
 
-echo -e "gene\tgo_class\tgene_class"
+#echo -e "gene\tgo_class\tgene_class"
+zless $GORESULTS | cut -f 1,4,5,12 | grep -wv Description | perl -an -F'/\t+/' -e '
+    @gene=split(/\//,$F[3]);
+    $F[2]=~s/\/.*//g;
+    foreach(@gene) {
+        chomp($_);
+        print "$_\t$F[2]\t$F[0]\t$F[1]\n";
+    }' | sort -k 1,1 -k 2n,2 | perl -ane 'if(!$seen{$F[0]}) { 
+        print $_; $seen{$F[0]}=1;
+    }' | perl -an -F'\t+' -e '
+        chomp($F[3]);
+        $seen{$F[3]}{$F[2]}.="$F[0],"; 
+        END {
+            foreach $BP(keys(%seen)) {
+                foreach $CLASS(keys(%{$seen{$BP}})) {
+                    $seen{$BP}{$CLASS}=~s/\,$//g;
+                    print "$BP\t$CLASS\t$seen{$BP}{$CLASS}\n";
+                }
+            }
+        }'
+
+## OLD ##
+<<"COMMENT"
 zless $GORESULTS | cut -f 1,4,12 | grep -wv Description | perl -an -F'/\t+/' -e '
     @gene=split(/\//,$F[2]);
     foreach(@gene) {
@@ -52,3 +74,8 @@ zless $GORESULTS | cut -f 1,4,12 | grep -wv Description | perl -an -F'/\t+/' -e 
     }' | sort -k 2,2 -k 3n,3 | perl -an -F'/\t+/' -e '$F[1]=~s/\,.*//g; print "$F[0]\t$F[1]\t$F[2]";' | sort -k 2,2
     ## more concise report on which go class contains most genes
     #cut -f 2,3 | sort | uniq -c | sed -E 's/^\s+//g' | sort -k 1rn,1
+COMMENT
+
+if [ ! -z "$TMP" ]; then
+    rm $TMP
+fi

@@ -14,18 +14,27 @@ usage() {
     echo " -i <file>   [input mapped reads in BAM format]"
     echo "[OPTIONS]"
     echo " -g <string> [genome (default: mm9)]"
+<<<<<<< HEAD
     #echo " -u          [use only uniquely mapped reads (using xs: tag)]"
     #echo "             [only valid for bowtie2 output (FOR TESTING)]"
+=======
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 	echo " -h          [help]"
 	echo
 	exit 0
 }
 
 #### parse options ####
+<<<<<<< HEAD
 while getopts i:g:uh ARG; do
 	case "$ARG" in
         i) INPUTBAMFILE=$OPTARG;;
         u) UNIQUE=1;;
+=======
+while getopts i:g:h ARG; do
+	case "$ARG" in
+        i) INPUTBAMFILE=$OPTARG;;
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
         g) GENOME=$OPTARG;;
 		h) HELP=1;;
 	esac
@@ -50,6 +59,7 @@ else
 fi
 
 ## determine spikeIn normalization values
+<<<<<<< HEAD
 if [ ! -z "$UNIQUE" ]; then
     SCALE=$(samtools view $INPUTBAMFILE | grep -v XS: | wc -l | perl -ane '$_=sprintf("%0.0f", $_/2); printf("%0.6f", 1000000/$_);'); 
 else
@@ -58,6 +68,12 @@ else
     elif [ "$(samtools flagstat $INPUTBAMFILE | grep 'mapped (' | cut -f 1 -d " ")" -gt 0 ]; then
         SCALE=$(samtools flagstat $INPUTBAMFILE | grep "mapped (" | cut -f 1 -d " " | perl -ane 'printf("%0.6f", 1000000/$_);');
     fi
+=======
+if [ "$(samtools flagstat $INPUTBAMFILE | grep 'properly paired (' | cut -f 1 -d " ")" -gt 0 ]; then
+    SCALE=$(samtools flagstat $INPUTBAMFILE | grep "properly paired (" | cut -f 1 -d " " | perl -ane '$_=sprintf("%0.0f", $_/2); printf("%0.6f", 1000000/$_);');
+elif [ "$(samtools flagstat $INPUTBAMFILE | grep 'mapped (' | cut -f 1 -d " ")" -gt 0 ]; then
+    SCALE=$(samtools flagstat $INPUTBAMFILE | grep "mapped (" | cut -f 1 -d " " | perl -ane 'printf("%0.6f", 1000000/$_);');
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 fi
 
 echo $SCALE

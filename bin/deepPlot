@@ -11,7 +11,10 @@ SORT_USING="mean"
 PLOTTITLE="deepPlot"
 AVERAGE_TYPE="mean"
 PLOT_TYPE="se"
+<<<<<<< HEAD
 PROCESSORS=1
+=======
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 
 #### usage ####
 usage() {
@@ -88,16 +91,25 @@ usage() {
     echo " -Z <int>    [Z-axis maximum value]"
     echo "[OPTIONS: misc]"
     echo " -F          [plot profile (default: heatmap)]"
+<<<<<<< HEAD
     echo " -x          [strand-specific coverage calculation]"
     echo " -g <string> [genome (default: mm9)]"
     echo " -X <int>    [number of processors to use (default: 1)"
+=======
+    echo " -x <string> [strand-specific coverage calculation: both (default), same, opposite]"
+    echo " -g <string> [genome (default: mm9)]"
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 	echo " -h          [help]"
 	echo
 	exit 0
 }
 
 #### parse options ####
+<<<<<<< HEAD
 while getopts i:j:o:cC:f:d:e:l:M:kn:N:s:a:A:T:5:3:pPt:q:Y:E:R:S:y:v:V:G:W:O:L:m:r:Q:z:Z:Fxg:X:h ARG; do
+=======
+while getopts i:j:o:cC:f:d:e:l:M:kn:N:s:a:A:T:5:3:pPt:q:Y:E:R:S:y:v:V:G:W:O:L:m:r:Q:z:Z:Fx:g:h ARG; do
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 	case "$ARG" in
 		i) REGIONFILE=$OPTARG;;
 		j) BWDIR=$OPTARG;;
@@ -139,9 +151,14 @@ while getopts i:j:o:cC:f:d:e:l:M:kn:N:s:a:A:T:5:3:pPt:q:Y:E:R:S:y:v:V:G:W:O:L:m:
         z) ZAXIS_MIN=$OPTARG;;
         Z) ZAXIS_MAX=$OPTARG;;
         F) PLOT_PROFILE=1;;
+<<<<<<< HEAD
         x) SS=1;;
         g) GENOME=$OPTARG;;
         X) PROCESSORS=$OPTARG;;
+=======
+        x) SS=$OPTARG;;
+        g) GENOME=$OPTARG;;
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 		h) HELP=1;;
 	esac
 done
@@ -198,6 +215,7 @@ fi
 INPUTFILES=($INPUTFILE)
 echo "done ($INPUTFILE)" >&2
 
+<<<<<<< HEAD
 ## strand-specific analysis
 if [ ! -z "$SS" ]; then
     oIFS=$IFS
@@ -250,6 +268,8 @@ if [ ! -z "$SS" ]; then
     BWDIR=$(echo $BWDIR | sed 's/^\,//')
 fi
 
+=======
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 echo
 echo -n "Organize input bigWig files (`date`).. " >&2
 oIFS=$IFS
@@ -347,10 +367,14 @@ if [ ! -z "$SAMPLE_LABEL" ]; then
     fi
 
     ARG="$ARG --samplesLabel $(echo $SAMPLE_LABEL | sed 's/\,/\n/g' | sort | uniq | tr '\r\n' ' ')";
+<<<<<<< HEAD
 elif [ ! -s "$OUTDIR/$PLOTTITLE.deepToolsMatrix.gz" ]; then
     scp $OUTDIR/$PLOTTITLE.deepToolsMatrix.raw.gz $OUTDIR/$PLOTTITLE.deepToolsMatrix.gz
 fi
 
+=======
+fi
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 if [ ! -z "$YAXIS_LABEL" ]; then
     ARG="$ARG --yAxisLabel $YAXIS_LABEL";
 fi

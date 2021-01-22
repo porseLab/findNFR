@@ -32,6 +32,7 @@ usage() {
 	echo " -i <file>   [input file containing genome information]"
     echo "[OPTIONS]"
     echo " -g <string> [genome (default: mm9)]"
+<<<<<<< HEAD
     echo " -m          [macs2 genome parameter, -g]"
     echo " -s          [effective genome size]"
     echo " -e          [file having genomic coordinates of genes in BED format]"
@@ -39,23 +40,34 @@ usage() {
     echo " -n          [file having genomic coordinates of genes in GTF format]"
     echo " -c          [file having genomic coordinates of CpG islands]"
     echo " -T          [file having genomic coordinates of all TSS (cage) in BED format]"
+=======
+    echo " -m          [macs2 genome size parameter, -g]"
+    echo " -s          [effective genome size]"
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 	echo " -h          [help]"
 	echo
 	exit 0
 }
 
 #### parse options ####
+<<<<<<< HEAD
 while getopts i:g:msetncTh ARG; do
+=======
+while getopts i:g:msh ARG; do
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 	case "$ARG" in
 		i) FILE=$OPTARG;;
         g) GENOME=$OPTARG;;
         m) MACS2=1;;
         s) GSIZE=1;;
+<<<<<<< HEAD
         e) GENE_COOR_BED=1;;
         t) TSS_COOR_BED=1;;
         n) GENE_COOR_GTF=1;;
         c) CPG_COOR_BED=1;;
         T) TSS_COOR_BED_CAGE=1;;
+=======
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 		h) HELP=1;;
 	esac
 done
@@ -70,6 +82,7 @@ if [ ! -z "$MACS2" ]; then
     grep -w $GENOME $FILE | perl -ane 'print "$F[2]";'
 elif [ ! -z "$GSIZE" ] ; then
     grep -w $GENOME $FILE | perl -ane 'print "$F[3]";'
+<<<<<<< HEAD
 elif [ ! -z "$GENE_COOR_BED" ] ; then
     grep -w $GENOME $FILE | perl -ane 'print "$F[4]";'
 elif [ ! -z "$TSS_COOR_BED" ] ; then
@@ -80,6 +93,8 @@ elif [ ! -z "$CPG_COOR_BED" ] ; then
     grep -w $GENOME $FILE | perl -ane 'print "$F[7]";'
 elif [ ! -z "$TSS_COOR_BED_CAGE" ] ; then
     grep -w $GENOME $FILE | perl -ane 'print "$F[8]";'
+=======
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 else
     grep -w $GENOME $FILE | perl -ane 'print "$F[1]";'
 fi

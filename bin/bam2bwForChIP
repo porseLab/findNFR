@@ -109,11 +109,14 @@ if [ ! -z "$EXTEND" ]; then
 fi
 <<"COMMENT"
 COMMENT
+<<<<<<< HEAD
 
 ## create index file of bam file, if does not exit
 if [ ! -e "$BAMFILE.bai" ]; then
     samtools index $BAMFILE
 fi
+=======
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 
 ## retrieve file name
 echo -n "Converting bam to bigwig format (`date`).. "
@@ -137,9 +140,15 @@ if [ ! -z "$OUTDIR" ]; then
         #bedtools bamtobed -i $BAMFILE -bed12 | bedtools slop -i stdin -g $GENOME_FILE -s -l 0 -r $EXTEND_VALUE | bedtools genomecov -bg -i stdin -g $GENOME_FILE -split -scale $SCALE_FACTOR > $OUTDIR/$ID.bedGraph
 
         ## use deeptools instead
+<<<<<<< HEAD
         bamCoverage -b $BAMFILE -o $OUTDIR/$ID.bw -of bigwig --ignoreDuplicates --normalizeUsing RPKM -e $EXTEND_VALUE --numberOfProcessors $PROCESSORS
     elif [ ! -z "$SCALE1x" ]; then
         bamCoverage -b $BAMFILE -o $OUTDIR/$ID.bw -of bigwig --ignoreDuplicates --normalizeUsing RPGC --effectiveGenomeSize $GENOME_SIZE -e $EXTEND_VALUE --numberOfProcessors $PROCESSORS
+=======
+        bamCoverage -b $BAMFILE -o $OUTDIR/$ID.bw -of bigwig --ignoreDuplicates --normalizeUsingRPKM -e $EXTEND_VALUE --numberOfProcessors $PROCESSORS
+    elif [ ! -z "$SCALE1x" ]; then
+        bamCoverage -b $BAMFILE -o $OUTDIR/$ID.bw -of bigwig --ignoreDuplicates --normalizeTo1x $GENOME_SIZE -e $EXTEND_VALUE --numberOfProcessors $PROCESSORS
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
     else
         #bedtools bamtobed -i $BAMFILE -bed12 | bedtools slop -i stdin -g $GENOME_FILE -s -l 0 -r $EXTEND_VALUE | bedtools genomecov -bg -i stdin -g $GENOME_FILE -split > $OUTDIR/$ID.bedGraph
         bamCoverage -b $BAMFILE -o $OUTDIR/$ID.bw -of bigwig --ignoreDuplicates -e $EXTEND_VALUE --numberOfProcessors $PROCESSORS
@@ -168,6 +177,7 @@ else
         #bedtools bamtobed -i $BAMFILE -bed12 | bedtools slop -i stdin -g $GENOME_FILE -s -l 0 -r $EXTEND_VALUE | bedtools genomecov -bg -i stdin -g $GENOME_FILE -split -scale $SCALE_FACTOR > $ID.bedGraph
 
         ## use deeptools instead
+<<<<<<< HEAD
         bamCoverage -b $BAMFILE -o $ID.bw -of bigwig --ignoreDuplicates --normalizeUsing RPKM -e $EXTEND_VALUE --numberOfProcessors $PROCESSORS
     elif [ ! -z "$SCALE1x" ]; then
         bamCoverage -b $BAMFILE -o $ID.bw -of bigwig --ignoreDuplicates --normalizeUsing RPGC --effectiveGenomeSize $GENOME_SIZE -e $EXTEND_VALUE --numberOfProcessors $PROCESSORS
@@ -180,6 +190,20 @@ else
     if [ -e "$ID.bedGraph" ]; then
         bedGraphToBigWig $ID.bedGraph $GENOME_FILE $ID.bw
 
+=======
+        bamCoverage -b $BAMFILE -o $ID.bw -of bigwig --ignoreDuplicates --normalizeUsingRPKM -e $EXTEND_VALUE --numberOfProcessors $PROCESSORS
+    elif [ ! -z "$SCALE1x" ]; then
+        bamCoverage -b $BAMFILE -o $ID.bw -of bigwig --ignoreDuplicates --normalizeTo1x $GENOME_SIZE -e $EXTEND_VALUE --numberOfProcessors $PROCESSORS
+    else
+        #bedtools bamtobed -i $BAMFILE -bed12 | bedtools slop -i stdin -g $GENOME_FILE -s -l 0 -r $EXTEND_VALUE | bedtools genomecov -bg -i stdin -g $GENOME_FILE -split > $ID.bedGraph
+        bamCoverage -b $BAMFILE -o $ID.bw -of bigwig --ignoreDuplicates -e $EXTEND_VALUE --numberOfProcessors $PROCESSORS
+
+    fi
+
+    if [ -e "$ID.bedGraph" ]; then
+        bedGraphToBigWig $ID.bedGraph $GENOME_FILE $ID.bw
+
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
         if [ -z "$KEEP" ]; then
             rm $ID.bedGraph 
         fi

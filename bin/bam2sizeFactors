@@ -36,7 +36,11 @@ usage() {
 	echo " -h          [help]"
     echo "[NOTE]"
     echo " [default output is to stdout. To exract size factors, use following command]"
+<<<<<<< HEAD
     echo " [bam2sizeFactors -i <BAM files> | grep \"\#size factors\" | perl -ane 'print \$F[scalar(@F)-1];']"
+=======
+    echo " [\"bam2sizeFactors -i <BAM files> | grep \"\#size factors\" | perl -ane 'print \$F[scalar(@F)-1];'\"]"
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
 	echo
 	exit 0
 }

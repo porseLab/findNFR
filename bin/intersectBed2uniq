@@ -119,9 +119,15 @@ if [ -z "$MOST_OVERLAPPING" ]; then
                     } elsif($operations[$j]=~/max/) {
                         $gene{$prev_key}{$_}=~s/^\,//g;
                         @t=split(/\,/,$gene{$prev_key}{$_});
-                        $max=0;
+                        $max=-1000000000000000000000000000;
                         foreach(@t) { if ($_ > $max) { $max=$_; } }
                         $line.="\t$max";
+                    } elsif($operations[$j]=~/min/) {
+                        $gene{$prev_key}{$_}=~s/^\,//g;
+                        @t=split(/\,/,$gene{$prev_key}{$_});
+                        $min=1000000000000000000000000000;
+                        foreach(@t) { if ($_ < $min) { $min=$_; } }
+                        $line.="\t$min";
                     } else {
                         $line.=sprintf("\t%0.6f", $gene{$prev_key}{$_});
                     }
@@ -165,9 +171,15 @@ if [ -z "$MOST_OVERLAPPING" ]; then
                 } elsif($operations[$j]=~/max/) {
                     $gene{$prev_key}{$_}=~s/^\,//g;
                     @t=split(/\,/,$gene{$prev_key}{$_});
-                    $max=0;
+                    $max=-1000000000000000000000000000;
                     foreach(@t) { if ($_ > $max) { $max=$_; } }
                     $line.="\t$max";
+                } elsif($operations[$j]=~/min/) {
+                    $gene{$prev_key}{$_}=~s/^\,//g;
+                    @t=split(/\,/,$gene{$prev_key}{$_});
+                    $min=1000000000000000000000000000;
+                    foreach(@t) { if ($_ < $min) { $min=$_; } }
+                    $line.="\t$min";
                 } else {
                     $line.=sprintf("\t%0.6f", $gene{$prev_key}{$_});
                 }

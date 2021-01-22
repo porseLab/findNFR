@@ -119,14 +119,15 @@ TMP_CLOSESTBED=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
 if [ ! -z "$RAW" ]; then
     COOR_COL=$(($NCOL_PROMOTER+$NCOL_ENHANCER+2))
     if [ ! -z "$CLASS_COL" ]; then
-        closestBed -a <(zless $ENHANCERFILE | grep -v start | sortBed -i stdin) -b <(sortBed -i $PROMOTERFILE) -d -t first -io | perl -ane 'chomp($_); print "$_\t$F[0]_$F[1]_$F[2]\n";' | closestBed2uniq -i stdin -c $SCORE_COL,$DISTANCE_COL,$CLASS_COL,$COOR_COL -o collapse -n $NCOL_PROMOTER
+        closestBed -a <(intersectBed -a <(zless $ENHANCERFILE | grep -v start | sortBed -i stdin) -b $PROMOTERFILE -v) -b <(sortBed -i $PROMOTERFILE) -d -t first -io | perl -ane 'chomp($_); print "$_\t$F[0]_$F[1]_$F[2]\n";' | closestBed2uniq -i stdin -c $SCORE_COL,$DISTANCE_COL,$CLASS_COL,$COOR_COL -o collapse -n $NCOL_PROMOTER
     else
-        closestBed -a <(zless $ENHANCERFILE | grep -v start | sortBed -i stdin) -b <(sortBed -i $PROMOTERFILE) -d -t first -io | perl -ane 'chomp($_); print "$_\t$F[0]_$F[1]_$F[2]\n";' | closestBed2uniq -i stdin -c $SCORE_COL,$DISTANCE_COL,$COOR_COL -o collapse -n $NCOL_PROMOTER
+        closestBed -a <(intersectBed -a <(zless $ENHANCERFILE | grep -v start | sortBed -i stdin) -b $PROMOTERFILE -v) -b <(sortBed -i $PROMOTERFILE) -d -t first -io | perl -ane 'chomp($_); print "$_\t$F[0]_$F[1]_$F[2]\n";' | closestBed2uniq -i stdin -c $SCORE_COL,$DISTANCE_COL,$COOR_COL -o collapse -n $NCOL_PROMOTER
     fi
 elif [ ! -z "$CLASS_COL" ]; then
-    closestBed -a <(zless $ENHANCERFILE | grep -v start | sortBed -i stdin) -b <(sortBed -i $PROMOTERFILE) -d -t first -io | closestBed2uniq -i stdin -c $SCORE_COL,$DISTANCE_COL,$CLASS_COL -o collapse -n $NCOL_PROMOTER | $FINDNFRPATH/share/R/bed2weightedSignal.R -i stdin -s $SCORE_COL -d $(($(echo $SCORE_COL | sed 's/^.*\,//g')+1)) -w 10000 -t $(($(echo $SCORE_COL | sed 's/^.*\,//g')+2))
+    #echo "closestBed -a <(zless $ENHANCERFILE | grep -v start | sortBed -i stdin) -b <(sortBed -i $PROMOTERFILE) -d -t first -io | closestBed2uniq -i stdin -c $SCORE_COL,$DISTANCE_COL,$CLASS_COL -o collapse -n $NCOL_PROMOTER"; exit
+    closestBed -a <(intersectBed -a <(zless $ENHANCERFILE | grep -v start | sortBed -i stdin) -b $PROMOTERFILE -v) -b <(sortBed -i $PROMOTERFILE) -d -t first -io | closestBed2uniq -i stdin -c $SCORE_COL,$DISTANCE_COL,$CLASS_COL -o collapse -n $NCOL_PROMOTER | $FINDNFRPATH/share/R/bed2weightedSignal.R -i stdin -s $SCORE_COL -d $(($(echo $SCORE_COL | sed 's/^.*\,//g')+1)) -w 10000 -t $(($(echo $SCORE_COL | sed 's/^.*\,//g')+2))
 else
-    closestBed -a <(zless $ENHANCERFILE | grep -v start | sortBed -i stdin) -b <(sortBed -i $PROMOTERFILE) -d -t first -io | closestBed2uniq -i stdin -c $SCORE_COL,$DISTANCE_COL -o collapse -n $NCOL_PROMOTER | $FINDNFRPATH/share/R/bed2weightedSignal.R -i stdin -s $SCORE_COL -d $(($(echo $SCORE_COL | sed 's/^.*\,//g')+1)) -w 10000
+    closestBed -a <(intersectBed -a <(zless $ENHANCERFILE | grep -v start | sortBed -i stdin) -b $PROMOTERFILE -v) -b <(sortBed -i $PROMOTERFILE) -d -t first -io | closestBed2uniq -i stdin -c $SCORE_COL,$DISTANCE_COL -o collapse -n $NCOL_PROMOTER | $FINDNFRPATH/share/R/bed2weightedSignal.R -i stdin -s $SCORE_COL -d $(($(echo $SCORE_COL | sed 's/^.*\,//g')+1)) -w 10000
 fi
 #echo -e "$SCORE_COL\t$DISTANCE_COL\t$NCOL_PROMOTER\t$NCOL_ENHANCER"
 #echo -e $(($DISTANCE_COL-$NCOL_PROMOTER))

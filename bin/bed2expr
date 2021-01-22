@@ -105,7 +105,11 @@ if [ "$(samtools view -H $INPUT | wc -l)" -le 0 ]; then
     fi
 
     ## read spikeIn control
+<<<<<<< HEAD
     if [ "$(cat $INPUTBAMFILES | perl -ane 'if($_!~/^\s+$/) { print scalar(@F)."\n"; }' | sort | uniq)" -gt 2 ]; then
+=======
+    if [ "$(cat $INPUTBAMFILES | perl -ane 'print scalar(@F)."\n";' | sort | uniq)" -gt 2 ]; then
+>>>>>>> 38b66808bfdbc41bf877a924132845f502d7829c
         INPUT=$(cat $INPUTBAMFILES | perl -ane '
             if($_=~/^'$CONFIG_FILTER'/) {
                 $file.="$F[2] ";
